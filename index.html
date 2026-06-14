@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>麻瓜專用每日卡片套版產生器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Serif+Display&family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#eef1f4;--panel:#ffffff;--panel-2:#f6f8fa;
+    --ink:#2b3440;--ink-soft:#5a6675;--ink-faint:#8a95a3;
+    --line:#dce2e8;--line-strong:#c4cdd6;
+    --accent:#43607a;--accent-soft:#5b7991;--accent-wash:#e7edf2;
+    --danger:#a4453d;--danger-wash:#f3e3e1;
+    --radius:14px;
+    --mono:"DM Mono",ui-monospace,monospace;
+    --sans:"Noto Sans TC",system-ui,sans-serif;
+    --serif-disp:"DM Serif Display",serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{font-family:var(--sans);color:var(--ink);background:var(--bg);line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1160px;margin:0 auto;padding:32px 24px 80px}
+
+  header.top{display:flex;align-items:baseline;gap:16px;padding-bottom:20px;margin-bottom:28px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  header.top h1{font-family:var(--serif-disp);font-size:30px;font-weight:400;letter-spacing:.3px;margin:0}
+  header.top .sub{font-family:var(--mono);font-size:12px;letter-spacing:.12em;color:var(--ink-faint);text-transform:uppercase}
+
+  .grid{display:grid;grid-template-columns:1fr 360px;gap:28px;align-items:start}
+  @media(max-width:880px){.grid{grid-template-columns:1fr}}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:22px}
+  .panel + .panel{margin-top:20px}
+
+  .label{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);display:block;margin-bottom:10px}
+  .field{margin-bottom:20px}
+  .field:last-child{margin-bottom:0}
+
+  .modeswitch{display:flex;border:1px solid var(--line-strong);border-radius:11px;overflow:hidden;margin-bottom:22px}
+  .modeswitch button{flex:1;border:0;background:var(--panel-2);color:var(--ink-soft);font-family:var(--sans);font-size:15px;font-weight:500;padding:13px 12px;cursor:pointer;border-right:1px solid var(--line)}
+  .modeswitch button:last-child{border-right:0}
+  .modeswitch button[aria-pressed="true"]{background:var(--accent);color:#fff}
+
+  /* quick add form */
+  .addform{display:flex;flex-direction:column;gap:10px}
+  .addform input,.addform textarea{width:100%;font-family:var(--sans);font-size:15px;color:var(--ink);background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:11px 14px;line-height:1.7}
+  .addform textarea{min-height:62px;resize:vertical}
+  .addform input:focus,.addform textarea:focus,details.bulk textarea:focus,select:focus{outline:2px solid var(--accent-soft);outline-offset:1px;border-color:transparent}
+  .add-actions{display:flex;gap:10px;align-items:center}
+  .btn-add{background:var(--accent);color:#fff;border:0;border-radius:10px;font-family:var(--sans);font-size:14.5px;font-weight:500;padding:11px 24px;cursor:pointer;flex:0 0 auto}
+  .btn-add:hover{background:#385067}
+  .add-hint{font-size:12px;color:var(--ink-faint)}
+
+  .listhead{display:flex;align-items:center;justify-content:space-between;margin:20px 0 8px}
+  .listhead .label{margin:0}
+  .clearbtn{border:0;background:none;color:var(--ink-faint);font-family:var(--mono);font-size:11px;letter-spacing:.08em;cursor:pointer;text-transform:uppercase}
+  .clearbtn:hover{color:var(--danger)}
+  .entrylist{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:11px;overflow:hidden;max-height:320px;overflow-y:auto}
+  .entry{display:flex;align-items:center;gap:11px;padding:11px 14px;border-bottom:1px solid var(--line);cursor:pointer;background:var(--panel)}
+  .entry:last-child{border-bottom:0}
+  .entry:hover{background:var(--panel-2)}
+  .entry[aria-current="true"]{background:var(--accent-wash)}
+  .entry .num{font-family:var(--mono);font-size:11px;color:var(--ink-faint);flex:0 0 auto;min-width:22px}
+  .entry .body{flex:1;min-width:0}
+  .entry .ttl{font-size:14px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .entry .sub{font-size:12px;color:var(--ink-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+  .entry .del{flex:0 0 auto;border:0;background:none;color:var(--ink-faint);font-size:19px;line-height:1;cursor:pointer;padding:2px 7px;border-radius:7px}
+  .entry .del:hover{color:var(--danger);background:var(--danger-wash)}
+  .empty{padding:24px 14px;text-align:center;color:var(--ink-faint);font-size:13px}
+
+  details.bulk{margin-top:20px;border-top:1px solid var(--line);padding-top:16px}
+  details.bulk summary{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);cursor:pointer;list-style:none}
+  details.bulk summary::-webkit-details-marker{display:none}
+  details.bulk summary::before{content:"＋ 批次貼上 / 進階匯入"}
+  details.bulk[open] summary::before{content:"－ 批次貼上 / 進階匯入"}
+  details.bulk summary span{display:none}
+  details.bulk textarea{width:100%;min-height:140px;margin-top:13px;font-family:var(--sans);font-size:14px;line-height:1.7;color:var(--ink);background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;resize:vertical}
+  details.bulk .hint{font-size:12.5px;color:var(--ink-soft);margin:10px 0 0;line-height:1.7}
+  details.bulk .hint code{font-family:var(--mono);font-size:11.5px;background:var(--accent-wash);color:var(--accent);padding:1px 6px;border-radius:5px}
+  .bulk-actions{display:flex;gap:10px;margin-top:12px}
+  .btn-mini{border:1px solid var(--line-strong);background:var(--panel);color:var(--ink);border-radius:9px;font-family:var(--sans);font-size:13.5px;padding:9px 16px;cursor:pointer}
+  .btn-mini:hover{background:var(--panel-2)}
+
+  .seg{display:flex;border:1px solid var(--line-strong);border-radius:9px;overflow:hidden}
+  .seg button{flex:1;border:0;background:var(--panel);color:var(--ink-soft);font-family:var(--sans);font-size:13.5px;padding:9px 12px;cursor:pointer;border-right:1px solid var(--line)}
+  .seg button:last-child{border-right:0}
+  .seg button[aria-pressed="true"]{background:var(--accent);color:#fff}
+
+  select{width:100%;font-family:var(--sans);font-size:14px;color:var(--ink);background:var(--panel-2);border:1px solid var(--line-strong);border-radius:9px;padding:9px 12px}
+
+  .palettes{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+  .sw{border:2px solid transparent;border-radius:10px;cursor:pointer;padding:0;overflow:hidden;background:none}
+  .sw[aria-pressed="true"]{border-color:var(--accent)}
+  .sw .chip{height:46px;display:flex;align-items:center;justify-content:center}
+  .sw .chip span{font-family:var(--serif-disp);font-size:20px}
+  .sw .nm{font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--ink-faint);padding:5px 0;display:block}
+
+  .colorrow{display:flex;align-items:center;gap:10px}
+  .colorrow input[type=color]{width:42px;height:34px;padding:0;border:1px solid var(--line-strong);border-radius:8px;background:none;cursor:pointer}
+  .colorrow .cval{font-family:var(--mono);font-size:12px;color:var(--ink-soft)}
+
+  .rangewrap{display:flex;align-items:center;gap:12px}
+  input[type=range]{flex:1;accent-color:var(--accent)}
+  .rangewrap .num{font-family:var(--mono);font-size:13px;color:var(--ink);min-width:46px;text-align:right}
+
+  .checkrow{display:flex;align-items:center;gap:9px;padding:7px 0}
+  .checkrow input{width:17px;height:17px;accent-color:var(--accent)}
+  .checkrow label{font-size:14px;color:var(--ink);cursor:pointer}
+
+  .preview-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .preview-head .count{font-family:var(--mono);font-size:12px;color:var(--ink-faint);letter-spacing:.1em}
+  .stage{background:linear-gradient(45deg,#e3e8ed 25%,transparent 25%),linear-gradient(-45deg,#e3e8ed 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#e3e8ed 75%),linear-gradient(-45deg,transparent 75%,#e3e8ed 75%);background-size:22px 22px;background-position:0 0,0 11px,11px -11px,-11px 0;border-radius:14px;padding:22px;display:flex;justify-content:center}
+  .stage canvas{width:100%;max-width:360px;height:auto;aspect-ratio:1;border-radius:14px;box-shadow:0 10px 30px rgba(43,52,64,.18)}
+  .nav{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:16px}
+  .nav button{border:1px solid var(--line-strong);background:var(--panel);color:var(--ink);border-radius:9px;width:38px;height:38px;font-size:17px;cursor:pointer}
+  .nav button:disabled{opacity:.35;cursor:default}
+  .nav .pos{font-family:var(--mono);font-size:13px;color:var(--ink-soft);min-width:72px;text-align:center}
+
+  .speakrow{display:flex;align-items:center;gap:14px;margin-top:14px}
+  .speakrow .btn-ghost{flex:0 0 auto}
+  .speakopt{font-size:13px;color:var(--ink-soft);display:flex;align-items:center;gap:7px;cursor:pointer}
+  .speakopt input{width:16px;height:16px;accent-color:var(--accent)}
+
+  .actions{display:flex;gap:12px;margin-top:18px;flex-wrap:wrap}
+  .btn{border:0;border-radius:10px;font-family:var(--sans);font-size:14.5px;font-weight:500;padding:13px 20px;cursor:pointer}
+  .btn-primary{background:var(--accent);color:#fff;flex:1;min-width:180px}
+  .btn-primary:hover{background:#385067}
+  .btn-ghost{background:var(--panel);color:var(--ink);border:1px solid var(--line-strong)}
+  .btn-ghost:hover{background:var(--panel-2)}
+  .btn:disabled{opacity:.5;cursor:default}
+
+  .status{font-family:var(--mono);font-size:12px;color:var(--ink-soft);margin-top:14px;min-height:18px;letter-spacing:.04em}
+
+  .thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:10px;margin-top:18px}
+  .thumbs button{padding:0;border:2px solid transparent;border-radius:9px;background:none;cursor:pointer;overflow:hidden;line-height:0}
+  .thumbs button[aria-pressed="true"]{border-color:var(--accent)}
+  .thumbs img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:7px}
+
+  .note{margin-top:26px;padding:16px 18px;background:var(--accent-wash);border-radius:12px;font-size:13px;color:var(--ink-soft);line-height:1.8}
+  .note b{color:var(--ink);font-weight:700}
+
+  .prompthelp{margin-top:18px;border-top:1px solid var(--line);padding-top:16px}
+  .prompt-btns{display:flex;gap:10px;flex-wrap:wrap}
+  .prompt-btns button[aria-pressed="true"]{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .prompt-box{margin-top:12px;display:flex;flex-direction:column;gap:10px}
+  .prompt-box textarea{width:100%;min-height:140px;font-family:var(--sans);font-size:13.5px;line-height:1.7;color:var(--ink);background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;resize:vertical}
+  .prompt-box .btn-mini{align-self:flex-start}
+
+  body[data-mode="vocab"] .mode-quote{display:none}
+  body[data-mode="quote"] .mode-vocab{display:none}
+</style>
+</head>
+<body data-mode="quote">
+<div class="wrap">
+  <header class="top">
+    <h1>麻瓜專用每日卡片套版產生器</h1>
+    <span class="sub">Quote&nbsp;&amp;&nbsp;Vocab&nbsp;Cards&nbsp;·&nbsp;Apple&nbsp;Watch</span>
+  </header>
+
+  <div class="grid">
+    <!-- LEFT -->
+    <div>
+      <div class="panel">
+        <div class="modeswitch" id="modeSwitch" role="group" aria-label="模式">
+          <button data-v="quote" aria-pressed="true">每日金句</button>
+          <button data-v="vocab" aria-pressed="false">每日英文單字</button>
+        </div>
+
+        <!-- quote quick add -->
+        <div class="addform mode-quote">
+          <span class="label">新增金句</span>
+          <textarea id="qText" placeholder="輸入一句金句…（按 Enter 直接加入，Shift+Enter 換行）"></textarea>
+          <input id="qAuthor" type="text" placeholder="出處（可省略）">
+          <div class="add-actions">
+            <button class="btn-add" id="qAdd">加入</button>
+            <span class="add-hint">已加入的會列在下方，可點選預覽、按 × 移除。</span>
+          </div>
+        </div>
+
+        <!-- vocab quick add -->
+        <div class="addform mode-vocab">
+          <span class="label">新增單字</span>
+          <input id="wWord" type="text" placeholder="單字（必填）">
+          <input id="wPhon" type="text" placeholder="音標（可省略）">
+          <input id="wMeaning" type="text" placeholder="中文（可省略）">
+          <input id="wExample" type="text" placeholder="例句（可省略）">
+          <div class="add-actions">
+            <button class="btn-add" id="wAdd">加入</button>
+            <span class="add-hint">任一欄位按 Enter 即可加入。</span>
+          </div>
+        </div>
+
+        <!-- shared list -->
+        <div id="cardInputBlock">
+        <div class="listhead">
+          <span class="label" id="listLabel">已加入</span>
+          <button class="clearbtn" id="clearAll">清空</button>
+        </div>
+        <div class="entrylist" id="entryList"></div>
+
+        <!-- bulk import -->
+        <details class="bulk">
+          <summary><span>批次貼上</span></summary>
+          <textarea id="bulkText" spellcheck="false" placeholder=""></textarea>
+          <p class="hint mode-quote">每行一句金句；要加出處就在句末用 <code>｜</code> 或 <code>|</code> 分隔，例如 <code>句子｜作者</code>。</p>
+          <p class="hint mode-vocab">每行一個單字，欄位用 <code>｜</code> 或 <code>|</code> 分隔：<code>單字｜音標｜中文｜例句</code>，後面欄位可省略。</p>
+          <div class="bulk-actions">
+            <button class="btn-mini" id="bulkAppend">附加到清單</button>
+            <button class="btn-mini" id="bulkReplace">取代整份清單</button>
+            <button class="btn-mini" id="fileImportBtn">從檔案匯入</button>
+            <input id="fileImport" type="file" accept=".json,.txt,application/json,text/plain" hidden>
+          </div>
+        </details>
+
+        <div class="prompthelp">
+          <span class="label">需要內容？取得提示詞</span>
+          <p class="add-hint" style="margin:0 0 10px">點一下複製，貼到你的 Claude 或 ChatGPT 聊天視窗，連同文章截圖或網址一起送出。它整理好後，把結果貼回上方「批次貼上」。</p>
+          <div class="prompt-btns">
+            <button class="btn-mini" id="promptQuote" aria-pressed="false">金句提示詞</button>
+            <button class="btn-mini" id="promptVocab" aria-pressed="false">英文單字提示詞</button>
+          </div>
+          <div id="promptBox" class="prompt-box" style="display:none">
+            <textarea id="promptText" readonly spellcheck="false"></textarea>
+            <button class="btn-mini" id="promptCopy">複製提示詞</button>
+          </div>
+        </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT column (card preview + style) -->
+    <div id="rightCol">
+      <div class="panel">
+        <div class="preview-head">
+          <span class="label" style="margin:0">即時預覽</span>
+          <span class="count" id="count">0 張</span>
+        </div>
+        <div class="stage"><canvas id="preview" width="1088" height="1088"></canvas></div>
+        <div class="nav">
+          <button id="prev" aria-label="上一張">&lsaquo;</button>
+          <span class="pos" id="pos">— / —</span>
+          <button id="next" aria-label="下一張">&rsaquo;</button>
+        </div>
+
+        <div class="speakrow mode-vocab" id="speakRow">
+          <button class="btn btn-ghost" id="speakBtn">朗讀本張</button>
+          <label class="speakopt"><input type="checkbox" id="slowSpeak" checked>放慢語速</label>
+        </div>
+
+        <div class="actions">
+          <button class="btn btn-primary" id="dlAll">下載全部（ZIP）</button>
+          <button class="btn btn-ghost" id="dlOne">下載這一張</button>
+        </div>
+        <div class="status" id="status"></div>
+        <div class="thumbs" id="thumbs"></div>
+      </div>
+
+      <div class="panel">
+        <div class="field">
+          <span class="label">配色</span>
+          <div class="palettes" id="palettes"></div>
+        </div>
+        <div class="field">
+          <span class="label">背景色</span>
+          <div class="colorrow"><input type="color" id="bgColor" value="#2e3a45"><span class="cval" id="bgVal">#2E3A45</span></div>
+        </div>
+        <div class="field">
+          <span class="label">文字色</span>
+          <div class="colorrow"><input type="color" id="fgColor" value="#e8e4d9"><span class="cval" id="fgVal">#E8E4D9</span></div>
+        </div>
+        <div class="field">
+          <span class="label">字體</span>
+          <div class="seg" id="fontMode" role="group">
+            <button data-v="serif" aria-pressed="true">思源宋體</button>
+            <button data-v="sans">思源黑體</button>
+          </div>
+        </div>
+        <div class="field mode-quote">
+          <span class="label">文字大小</span>
+          <div class="seg" id="sizeMode" role="group" style="margin-bottom:12px">
+            <button data-v="auto" aria-pressed="true">自動適配</button>
+            <button data-v="manual">手動</button>
+          </div>
+          <div class="rangewrap">
+            <input type="range" id="fontSize" min="40" max="140" value="78" disabled>
+            <span class="num" id="fontSizeVal">自動</span>
+          </div>
+        </div>
+        <div class="field mode-vocab">
+          <span class="label">每張單字數</span>
+          <div class="seg" id="perCard" role="group">
+            <button data-v="1">1</button><button data-v="2">2</button>
+            <button data-v="3" aria-pressed="true">3</button><button data-v="4">4</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="field">
+          <span class="label">裝飾</span>
+          <div class="mode-quote">
+            <div class="checkrow"><input type="checkbox" id="optQuote" checked><label for="optQuote">顯示引號裝飾</label></div>
+          </div>
+          <div class="mode-vocab">
+            <div class="checkrow"><input type="checkbox" id="optPhon" checked><label for="optPhon">顯示音標</label></div>
+            <div class="checkrow"><input type="checkbox" id="optExample"><label for="optExample">顯示例句</label></div>
+          </div>
+          <div class="checkrow"><input type="checkbox" id="optRule" checked><label for="optRule" id="ruleLabel">出處上方分隔線</label></div>
+          <div class="checkrow"><input type="checkbox" id="optIndex"><label for="optIndex" id="indexLabel">右上角編號（DM&nbsp;Mono）</label></div>
+        </div>
+        <div class="field">
+          <span class="label">輸出尺寸（正方形）</span>
+          <select id="outSize">
+            <option value="1088">1088 × 1088（建議）</option>
+            <option value="1024">1024 × 1024</option>
+            <option value="1440">1440 × 1440（高解析）</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="note">
+        <b>放進 Apple Watch 的方式</b><br>
+        將下載的圖片存進 iPhone 一個專屬相簿，到「Watch」App →「照片」→「相簿同步」指定該相簿；錶面選「照片」即會自動輪換顯示。內容皆置於中央安全區，避免被裁切。
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  var PALETTES = [
+    {name:"墨青", bg:"#2E3A45", fg:"#E8E4D9"},
+    {name:"霧白", bg:"#F2EFE9", fg:"#36404A"},
+    {name:"黛綠", bg:"#384139", fg:"#E3E1D4"},
+    {name:"暮藍", bg:"#33414F", fg:"#DCE3E8"},
+    {name:"棠紅", bg:"#43302E", fg:"#ECE0D4"},
+    {name:"靛紙", bg:"#E8E9ED", fg:"#2C3845"}
+  ];
+
+  var $ = function(id){return document.getElementById(id);};
+
+  var state = {
+    mode:"quote",
+    quoteList:[
+      {text:"心若沒有棲息的地方，到哪裡都是流浪。",author:"三毛"},
+      {text:"你今天的努力，是幸運的伏筆。",author:""},
+      {text:"凡是過往，皆為序章。",author:"莎士比亞"},
+      {text:"慢慢來，比較快。",author:""},
+      {text:"願你走出半生，歸來仍是少年。",author:""}
+    ],
+    vocabList:[
+      {word:"resilience",phon:"rɪˈzɪliəns",meaning:"n. 韌性；恢復力",example:"She showed great resilience after the setback."},
+      {word:"diligent",phon:"ˈdɪlɪdʒənt",meaning:"adj. 勤勉的",example:"A diligent nurse double-checks every dose."},
+      {word:"serene",phon:"səˈriːn",meaning:"adj. 平靜的；安詳的",example:""},
+      {word:"endeavor",phon:"ɪnˈdɛvər",meaning:"n. 努力；嘗試",example:""},
+      {word:"gratitude",phon:"ˈɡrætɪtuːd",meaning:"n. 感恩",example:""},
+      {word:"profound",phon:"prəˈfaʊnd",meaning:"adj. 深刻的",example:""}
+    ],
+    bg:"#2E3A45", fg:"#E8E4D9",
+    fontMode:"serif",
+    sizeMode:"auto", fontSize:78,
+    quote:true, rule:true, index:false,
+    showPhon:true, showExample:false,
+    wordsPerCard:3,
+    outSize:1088,
+    current:0,
+    items:[]
+  };
+
+  /* ---------- text helpers ---------- */
+  function isCJK(ch){return /[\u3000-\u303F\u3040-\u30FF\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF\uFF00-\uFFEF]/.test(ch);}
+  function tokenize(text){
+    var tokens=[],buf="";
+    for(var i=0;i<text.length;i++){var ch=text[i];
+      if(ch===" "){if(buf){tokens.push(buf);buf="";}tokens.push(" ");}
+      else if(isCJK(ch)){if(buf){tokens.push(buf);buf="";}tokens.push(ch);}
+      else buf+=ch;}
+    if(buf)tokens.push(buf);return tokens;
+  }
+  function wrapParagraph(ctx,text,maxWidth){
+    var tokens=tokenize(text),lines=[],line="";
+    for(var i=0;i<tokens.length;i++){var tk=tokens[i],test=line+tk;
+      if(ctx.measureText(test).width>maxWidth && line.replace(/\s+$/,"")!==""){
+        lines.push(line.replace(/\s+$/,""));line=(tk===" ")?"":tk;
+      } else line=test;}
+    if(line.replace(/\s+$/,"")!=="")lines.push(line.replace(/\s+$/,""));
+    return lines.length?lines:[""];
+  }
+  function fontStack(){return state.fontMode==="serif"?'"Noto Serif TC", serif':'"Noto Sans TC", sans-serif';}
+  function fontWeight(){return state.fontMode==="serif"?600:500;}
+
+  /* ---------- quote render ---------- */
+  function layoutText(ctx,paragraphs,maxWidth,maxHeight){
+    var weight=fontWeight(),fam=fontStack();
+    if(state.sizeMode==="manual"){
+      var s=state.fontSize;ctx.font=weight+" "+s+"px "+fam;var ls=[];
+      paragraphs.forEach(function(p){ls=ls.concat(wrapParagraph(ctx,p,maxWidth));});
+      return {size:s,lines:ls,lineHeight:s*1.5};
+    }
+    var min=34,max=Math.min(146,Math.floor(maxWidth/3));
+    for(var size=max;size>=min;size-=2){
+      ctx.font=weight+" "+size+"px "+fam;var lines=[],maxW=0;
+      paragraphs.forEach(function(p){lines=lines.concat(wrapParagraph(ctx,p,maxWidth));});
+      for(var i=0;i<lines.length;i++)maxW=Math.max(maxW,ctx.measureText(lines[i]).width);
+      var lh=size*1.5,total=lines.length*lh;
+      if(total<=maxHeight && maxW<=maxWidth)return {size:size,lines:lines,lineHeight:lh};
+    }
+    ctx.font=weight+" "+min+"px "+fam;var fl=[];
+    paragraphs.forEach(function(p){fl=fl.concat(wrapParagraph(ctx,p,maxWidth));});
+    return {size:min,lines:fl,lineHeight:min*1.5};
+  }
+  function renderQuote(ctx,W,item,idx){
+    var H=W;ctx.clearRect(0,0,W,H);ctx.fillStyle=state.bg;ctx.fillRect(0,0,W,H);
+    var inset=Math.round(W*0.13),maxWidth=W-inset*2;
+    var hasAttr=!!item.author,attrZone=hasAttr?Math.round(W*0.14):0;
+    var maxBlockH=H-inset*2-attrZone;
+    var lay=layoutText(ctx,item.text.split("\n"),maxWidth,maxBlockH);
+    var topShift=0;
+    if(state.quote){
+      var qm=Math.round(W*0.16);ctx.font="400 "+qm+'px "Noto Serif TC", serif';
+      ctx.fillStyle=state.fg;ctx.globalAlpha=0.16;ctx.textAlign="center";ctx.textBaseline="alphabetic";
+      ctx.fillText("\u201C",W/2,inset+qm*0.78);ctx.globalAlpha=1;topShift=Math.round(qm*0.30);
+    }
+    ctx.fillStyle=state.fg;ctx.font=fontWeight()+" "+lay.size+"px "+fontStack();
+    ctx.textAlign="center";ctx.textBaseline="middle";
+    var blockH=lay.lines.length*lay.lineHeight,areaTop=inset+topShift,areaBottom=H-inset-attrZone;
+    var startY=areaTop+(areaBottom-areaTop)/2-blockH/2+lay.lineHeight/2;
+    for(var i=0;i<lay.lines.length;i++)ctx.fillText(lay.lines[i],W/2,startY+i*lay.lineHeight);
+    if(hasAttr){
+      var ay=H-inset-Math.round(W*0.02),aSize=Math.max(22,Math.round(W*0.030));
+      if(state.rule){var rw=Math.round(W*0.07);ctx.globalAlpha=0.5;ctx.strokeStyle=state.fg;
+        ctx.lineWidth=Math.max(1,Math.round(W*0.0016));ctx.beginPath();
+        ctx.moveTo(W/2-rw,ay-aSize*1.9);ctx.lineTo(W/2+rw,ay-aSize*1.9);ctx.stroke();ctx.globalAlpha=1;}
+      ctx.font="500 "+aSize+'px "Noto Sans TC", sans-serif';ctx.fillStyle=state.fg;ctx.globalAlpha=0.78;
+      ctx.textAlign="center";ctx.textBaseline="alphabetic";ctx.fillText(item.author,W/2,ay);ctx.globalAlpha=1;
+    }
+    if(state.index)drawIndex(ctx,W,inset,String(idx+1));
+  }
+
+  /* ---------- vocab render ---------- */
+  function vocabSizes(W,scale){
+    return {word:W*0.088*scale,phon:W*0.040*scale,meaning:W*0.050*scale,example:W*0.034*scale,
+            gapIn:W*0.012*scale,gapItem:W*0.052*scale};
+  }
+  var WORD_LH=1.18,PHON_LH=1.3,MEAN_LH=1.4,EX_LH=1.32;
+  function layoutVocab(ctx,card,W,availTop,availBottom){
+    var maxWidth=W-2*Math.round(W*0.11),availH=availBottom-availTop,best=null;
+    for(var scale=1.0;scale>=0.4;scale-=0.04){
+      var s=vocabSizes(W,scale),items=[],total=0;
+      card.words.forEach(function(w){
+        ctx.font=fontWeight()+" "+s.word+"px "+fontStack();
+        var wordLines=wrapParagraph(ctx,w.word,maxWidth);
+        var h=wordLines.length*s.word*WORD_LH;
+        if(state.showPhon && w.phon)h+=s.gapIn+s.phon*PHON_LH;
+        var meaningLines=[];
+        if(w.meaning){ctx.font='500 '+s.meaning+'px "Noto Sans TC", sans-serif';
+          meaningLines=wrapParagraph(ctx,w.meaning,maxWidth);h+=s.gapIn+meaningLines.length*s.meaning*MEAN_LH;}
+        var exLines=[];
+        if(state.showExample && w.example){ctx.font='400 '+s.example+'px "Noto Sans TC", sans-serif';
+          exLines=wrapParagraph(ctx,w.example,maxWidth);h+=s.gapIn+exLines.length*s.example*EX_LH;}
+        items.push({w:w,wordLines:wordLines,meaningLines:meaningLines,exLines:exLines,h:h});total+=h;
+      });
+      total+=s.gapItem*(card.words.length-1);
+      if(total<=availH)return {scale:scale,sizes:s,items:items,total:total};
+      best={scale:scale,sizes:s,items:items,total:total};
+    }
+    return best;
+  }
+  function renderVocab(ctx,W,card,idx){
+    var H=W;ctx.clearRect(0,0,W,H);ctx.fillStyle=state.bg;ctx.fillRect(0,0,W,H);
+    var inset=Math.round(W*0.11),availTop=inset,availBottom=H-inset;
+    var lay=layoutVocab(ctx,card,W,availTop,availBottom),s=lay.sizes;
+    var y=availTop+(availBottom-availTop-lay.total)/2;
+    lay.items.forEach(function(it,i){
+      if(i>0){
+        if(state.rule){var ly=y+s.gapItem*0.5,rw=Math.round(W*0.30);
+          ctx.globalAlpha=0.30;ctx.strokeStyle=state.fg;ctx.lineWidth=Math.max(1,Math.round(W*0.0014));
+          ctx.beginPath();ctx.moveTo(W/2-rw,ly);ctx.lineTo(W/2+rw,ly);ctx.stroke();ctx.globalAlpha=1;}
+        y+=s.gapItem;
+      }
+      ctx.textAlign="center";ctx.textBaseline="top";
+      ctx.fillStyle=state.fg;ctx.font=fontWeight()+" "+s.word+"px "+fontStack();
+      it.wordLines.forEach(function(ln){ctx.fillText(ln,W/2,y);y+=s.word*WORD_LH;});
+      if(state.showPhon && it.w.phon){y+=s.gapIn;
+        var pt=/^[\/\[]/.test(it.w.phon)?it.w.phon:("/"+it.w.phon+"/");
+        ctx.font='400 '+s.phon+'px "DM Mono", monospace';ctx.globalAlpha=0.62;
+        ctx.fillText(pt,W/2,y);ctx.globalAlpha=1;y+=s.phon*PHON_LH;}
+      if(it.meaningLines.length){y+=s.gapIn;ctx.font='500 '+s.meaning+'px "Noto Sans TC", sans-serif';ctx.fillStyle=state.fg;
+        it.meaningLines.forEach(function(ln){ctx.fillText(ln,W/2,y);y+=s.meaning*MEAN_LH;});}
+      if(state.showExample && it.exLines.length){y+=s.gapIn;ctx.font='400 '+s.example+'px "Noto Sans TC", sans-serif';ctx.globalAlpha=0.55;
+        it.exLines.forEach(function(ln){ctx.fillText(ln,W/2,y);y+=s.example*EX_LH;});ctx.globalAlpha=1;}
+    });
+    if(state.index){var num=String(idx+1);if(num.length<2)num="0"+num;drawIndex(ctx,W,inset,"DAY "+num);}
+  }
+  function drawIndex(ctx,W,inset,text){
+    var nSize=Math.max(18,Math.round(W*0.024));
+    ctx.font="500 "+nSize+'px "DM Mono", monospace';ctx.fillStyle=state.fg;ctx.globalAlpha=0.45;
+    ctx.textAlign="right";ctx.textBaseline="top";
+    if(/^\d+$/.test(text)&&text.length<2)text="0"+text;
+    ctx.fillText(text,W-inset,inset*0.6);ctx.globalAlpha=1;
+  }
+  function renderCard(ctx,W,item,idx){
+    if(state.mode==="vocab")renderVocab(ctx,W,item,idx);else renderQuote(ctx,W,item,idx);
+  }
+
+  /* ---------- build items from lists ---------- */
+  function buildItems(){
+    if(state.mode==="vocab"){
+      var per=state.wordsPerCard,cards=[];
+      for(var i=0;i<state.vocabList.length;i+=per)cards.push({words:state.vocabList.slice(i,i+per)});
+      return cards;
+    }
+    return state.quoteList.map(function(q){return {text:q.text,author:q.author};});
+  }
+
+  /* ---------- speech ---------- */
+  var Speech=(function(){
+    var supported=("speechSynthesis" in window) && ("SpeechSynthesisUtterance" in window);
+    var voices=[],enVoice=null,speaking=false;
+    function loadVoices(){if(!supported)return;voices=window.speechSynthesis.getVoices()||[];
+      var en=voices.filter(function(v){return /^en(-|_|$)/i.test(v.lang);});
+      en.sort(function(a,b){return (/en[-_]US/i.test(a.lang)?0:1)-(/en[-_]US/i.test(b.lang)?0:1);});
+      enVoice=en[0]||null;}
+    if(supported){loadVoices();window.speechSynthesis.onvoiceschanged=loadVoices;}
+    function stop(){if(supported)window.speechSynthesis.cancel();speaking=false;}
+    function speak(list,slow,onend){
+      if(!supported||!list.length)return;stop();speaking=true;var rate=slow?0.72:0.95;
+      list.forEach(function(text,i){var u=new SpeechSynthesisUtterance(text);
+        u.lang="en-US";if(enVoice)u.voice=enVoice;u.rate=rate;u.pitch=1;
+        if(i===list.length-1){u.onend=function(){speaking=false;if(onend)onend();};
+          u.onerror=function(){speaking=false;if(onend)onend();};}
+        window.speechSynthesis.speak(u);});
+    }
+    return {supported:supported,stop:stop,speak:speak,isSpeaking:function(){return speaking;}};
+  })();
+  function resetSpeak(){if(!Speech.supported)return;Speech.stop();var b=$("speakBtn");if(b)b.textContent="朗讀本張";}
+
+  /* ---------- refresh + list render ---------- */
+  var thumbTimer=null;
+  function refresh(rebuildThumbs){
+    state.items=buildItems();
+    scheduleSave();
+    var n=state.items.length;
+    $("count").textContent=state.mode==="vocab"?(state.vocabList.length+" 字 · "+n+" 張"):(n+" 張");
+    if(state.current>=n)state.current=Math.max(0,n-1);
+    var W=state.outSize,pc=$("preview");pc.width=W;pc.height=W;var ctx=pc.getContext("2d");
+    if(n===0){
+      ctx.clearRect(0,0,W,W);ctx.fillStyle=state.bg;ctx.fillRect(0,0,W,W);
+      $("pos").textContent="— / —";$("thumbs").innerHTML="";$("dlAll").disabled=true;$("dlOne").disabled=true;return;
+    }
+    $("dlAll").disabled=false;$("dlOne").disabled=false;
+    renderCard(ctx,W,state.items[state.current],state.current);
+    $("pos").textContent=(state.current+1)+" / "+n;
+    $("prev").disabled=(state.current===0);$("next").disabled=(state.current===n-1);
+    if(rebuildThumbs){clearTimeout(thumbTimer);thumbTimer=setTimeout(buildThumbs,120);}
+  }
+  function buildThumbs(){
+    var box=$("thumbs");box.innerHTML="";
+    var W=state.outSize,off=document.createElement("canvas");off.width=W;off.height=W;var octx=off.getContext("2d");
+    state.items.forEach(function(item,i){renderCard(octx,W,item,i);
+      var url=off.toDataURL("image/png");var b=document.createElement("button");
+      b.setAttribute("aria-pressed",i===state.current?"true":"false");b.title="第 "+(i+1)+" 張";
+      var img=document.createElement("img");img.src=url;img.alt="預覽 "+(i+1);b.appendChild(img);
+      b.addEventListener("click",function(){resetSpeak();state.current=i;refresh(false);markThumbs();renderList();});
+      box.appendChild(b);});
+  }
+  function markThumbs(){var btns=$("thumbs").querySelectorAll("button");
+    for(var i=0;i<btns.length;i++)btns[i].setAttribute("aria-pressed",i===state.current?"true":"false");}
+
+  function esc(s){return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+  function renderList(){
+    var box=$("entryList");box.innerHTML="";
+    var list=state.mode==="vocab"?state.vocabList:state.quoteList;
+    if(list.length===0){box.innerHTML='<div class="empty">'+(state.mode==="vocab"?"還沒有單字，先在上方新增。":"還沒有金句，先在上方新增。")+'</div>';return;}
+    list.forEach(function(it,i){
+      var row=document.createElement("div");row.className="entry";row.setAttribute("data-i",i);
+      var cardIdx=state.mode==="vocab"?Math.floor(i/state.wordsPerCard):i;
+      row.setAttribute("aria-current",cardIdx===state.current?"true":"false");
+      var ttl,sub;
+      if(state.mode==="vocab"){ttl=esc(it.word);sub=esc(it.meaning||it.phon||"");}
+      else{ttl=esc(it.text);sub=it.author?("— "+esc(it.author)):"";}
+      row.innerHTML='<span class="num">'+(i+1)+'</span><div class="body"><div class="ttl">'+ttl+'</div>'+(sub?'<div class="sub">'+sub+'</div>':'')+'</div><button class="del" title="移除" aria-label="移除">×</button>';
+      row.addEventListener("click",function(e){
+        if(e.target.classList.contains("del")){e.stopPropagation();removeItem(i);return;}
+        resetSpeak();state.current=cardIdx;refresh(false);markThumbs();renderList();
+      });
+      box.appendChild(row);
+    });
+  }
+  function update(rebuild){refresh(rebuild);renderList();}
+
+  /* ---------- list mutations ---------- */
+  function addQuote(){
+    var t=$("qText").value.replace(/\s+$/,"").replace(/^\s+/,"");if(!t)return;
+    var a=$("qAuthor").value.trim();
+    state.quoteList.push({text:t,author:a});
+    $("qText").value="";$("qAuthor").value="";$("qText").focus();
+    state.current=state.quoteList.length-1;update(true);
+  }
+  function addWord(){
+    var w=$("wWord").value.trim();if(!w)return;
+    state.vocabList.push({word:w,phon:$("wPhon").value.trim(),meaning:$("wMeaning").value.trim(),example:$("wExample").value.trim()});
+    $("wWord").value="";$("wPhon").value="";$("wMeaning").value="";$("wExample").value="";$("wWord").focus();
+    state.current=Math.floor((state.vocabList.length-1)/state.wordsPerCard);update(true);
+  }
+  function removeItem(i){
+    resetSpeak();
+    if(state.mode==="vocab")state.vocabList.splice(i,1);else state.quoteList.splice(i,1);
+    update(true);
+  }
+  function clearAll(){
+    resetSpeak();
+    if(state.mode==="vocab")state.vocabList=[];else state.quoteList=[];
+    state.current=0;update(true);
+  }
+  function parseBulkQuotes(text){
+    return text.split(/\n/).map(function(l){
+      var t=l.replace(/\s+$/,"").replace(/^\s+/,"");if(!t)return null;
+      var a="",m=t.split(/\s*[｜|]\s*/);if(m.length>1){a=m.pop().trim();t=m.join(" ").trim();}
+      return {text:t,author:a};
+    }).filter(Boolean);
+  }
+  function parseBulkVocab(text){
+    return text.split(/\n/).map(function(l){
+      var t=l.trim();if(!t)return null;var p=t.split(/\s*[｜|]\s*/);
+      return {word:(p[0]||"").trim(),phon:(p[1]||"").trim(),meaning:(p[2]||"").trim(),example:(p[3]||"").trim()};
+    }).filter(function(x){return x && x.word;});
+  }
+  function bulkApply(replace){
+    var txt=$("bulkText").value;if(!txt.trim())return;
+    if(state.mode==="vocab"){var arr=parseBulkVocab(txt);if(replace)state.vocabList=arr;else state.vocabList=state.vocabList.concat(arr);}
+    else{var q=parseBulkQuotes(txt);if(replace)state.quoteList=q;else state.quoteList=state.quoteList.concat(q);}
+    $("bulkText").value="";state.current=replace?0:state.current;update(true);
+  }
+
+  function normVocab(o){o=o||{};return {word:String(o.word||"").trim(),phon:String(o.phon||o.phonetic||"").trim(),meaning:String(o.meaning||o.meaning_zh||"").trim(),example:String(o.example||"").trim()};}
+  function normQuote(o){o=o||{};return {text:String(o.text||o.quote||"").trim(),author:String(o.author||o.source||"").trim()};}
+  function applyImported(kind,vocabArr,quoteArr){
+    var n=0;
+    if(kind==="quote"){quoteArr.forEach(function(q){state.quoteList.push(q);});n=quoteArr.length;
+      if(state.mode!=="quote")switchMode("quote");state.current=Math.max(0,state.quoteList.length-1);}
+    else{vocabArr.forEach(function(v){state.vocabList.push(v);});n=vocabArr.length;
+      if(state.mode!=="vocab")switchMode("vocab");state.current=Math.floor(Math.max(0,state.vocabList.length-1)/state.wordsPerCard);}
+    update(true);
+    var s=$("status");if(s)s.textContent="已從檔案匯入 "+n+" 筆。";
+  }
+  function importFile(file){
+    if(!file)return;
+    var reader=new FileReader();
+    reader.onload=function(){
+      var raw=String(reader.result||""),name=file.name||"",t=raw.trim();
+      var isJson=/\.json$/i.test(name)||t.charAt(0)==="{"||t.charAt(0)==="[";
+      if(isJson){
+        var data;try{data=JSON.parse(t);}catch(e){alert("JSON 解析失敗，請確認檔案內容。");return;}
+        var items=null,kind=null;
+        if(Array.isArray(data))items=data;
+        else if(data&&Array.isArray(data.items)){items=data.items;kind=data.type;}
+        if(!items||!items.length){alert("檔案裡找不到可匯入的項目。");return;}
+        if(kind!=="vocab"&&kind!=="quote"){var f=items[0]||{};kind=(typeof f.text==="string"&&typeof f.word!=="string")?"quote":"vocab";}
+        if(kind==="quote")applyImported("quote",null,items.map(normQuote).filter(function(q){return q.text;}));
+        else applyImported("vocab",items.map(normVocab).filter(function(v){return v.word;}),null);
+      } else {
+        if(state.mode==="quote")applyImported("quote",null,parseBulkQuotes(raw));
+        else applyImported("vocab",parseBulkVocab(raw),null);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  /* ---------- persistence (localStorage) ---------- */
+  var STORAGE_KEY="dailyCardMaker.v1";
+  var saveTimer=null;
+  function saveState(){
+    try{
+      var data={mode:state.mode,quoteList:state.quoteList,vocabList:state.vocabList,
+        bg:state.bg,fg:state.fg,fontMode:state.fontMode,sizeMode:state.sizeMode,fontSize:state.fontSize,
+        quote:state.quote,rule:state.rule,index:state.index,showPhon:state.showPhon,showExample:state.showExample,
+        wordsPerCard:state.wordsPerCard,outSize:state.outSize,current:state.current};
+      localStorage.setItem(STORAGE_KEY,JSON.stringify(data));
+    }catch(e){}
+  }
+  function scheduleSave(){clearTimeout(saveTimer);saveTimer=setTimeout(saveState,300);}
+  function loadState(){
+    var raw;try{raw=localStorage.getItem(STORAGE_KEY);}catch(e){return;}
+    if(!raw)return;var d;try{d=JSON.parse(raw);}catch(e){return;}
+    if(!d||typeof d!=="object")return;
+    if(d.mode==="quote"||d.mode==="vocab")state.mode=d.mode;
+    if(Array.isArray(d.quoteList))state.quoteList=d.quoteList.filter(function(x){return x&&typeof x.text==="string";})
+      .map(function(x){return {text:x.text,author:typeof x.author==="string"?x.author:""};});
+    if(Array.isArray(d.vocabList))state.vocabList=d.vocabList.filter(function(x){return x&&typeof x.word==="string";})
+      .map(function(x){return {word:x.word,phon:x.phon||"",meaning:x.meaning||"",example:x.example||""};});
+    if(typeof d.bg==="string")state.bg=d.bg;
+    if(typeof d.fg==="string")state.fg=d.fg;
+    if(d.fontMode==="serif"||d.fontMode==="sans")state.fontMode=d.fontMode;
+    if(d.sizeMode==="auto"||d.sizeMode==="manual")state.sizeMode=d.sizeMode;
+    if(typeof d.fontSize==="number")state.fontSize=Math.min(140,Math.max(40,d.fontSize));
+    ["quote","rule","index","showPhon","showExample"].forEach(function(k){if(typeof d[k]==="boolean")state[k]=d[k];});
+    if([1,2,3,4].indexOf(d.wordsPerCard)>=0)state.wordsPerCard=d.wordsPerCard;
+    if([1024,1088,1440].indexOf(+d.outSize)>=0)state.outSize=+d.outSize;
+    if(typeof d.current==="number"&&d.current>=0)state.current=d.current;
+  }
+  function setSeg(id,val){var g=$(id);if(!g)return;var b=g.querySelectorAll("button");
+    for(var i=0;i<b.length;i++)b[i].setAttribute("aria-pressed",b[i].getAttribute("data-v")===String(val)?"true":"false");}
+  function markPalette(){
+    var sws=$("palettes").querySelectorAll(".sw");
+    for(var i=0;i<sws.length;i++){var p=PALETTES[i];
+      var hit=p&&p.bg.toLowerCase()===state.bg.toLowerCase()&&p.fg.toLowerCase()===state.fg.toLowerCase();
+      sws[i].setAttribute("aria-pressed",hit?"true":"false");}
+  }
+  function syncControls(){
+    document.body.setAttribute("data-mode",state.mode);
+    var mb=$("modeSwitch").querySelectorAll("button");
+    for(var i=0;i<mb.length;i++)mb[i].setAttribute("aria-pressed",mb[i].getAttribute("data-v")===state.mode?"true":"false");
+    $("bgColor").value=state.bg;$("bgVal").textContent=state.bg.toUpperCase();
+    $("fgColor").value=state.fg;$("fgVal").textContent=state.fg.toUpperCase();
+    setSeg("fontMode",state.fontMode);setSeg("sizeMode",state.sizeMode);
+    $("fontSize").disabled=(state.sizeMode!=="manual");$("fontSize").value=state.fontSize;
+    $("fontSizeVal").textContent=(state.sizeMode==="manual")?(state.fontSize+" px"):"自動";
+    setSeg("perCard",state.wordsPerCard);
+    $("optQuote").checked=state.quote;$("optRule").checked=state.rule;$("optIndex").checked=state.index;
+    $("optPhon").checked=state.showPhon;$("optExample").checked=state.showExample;
+    $("outSize").value=String(state.outSize);
+    markPalette();applyModeLabels();
+  }
+
+  /* ---------- prompt helper ---------- */
+  var PROMPT_QUOTE=
+"請閱讀我提供的文章（截圖或連結），挑出 5 句最有力量、最值得收藏的句子。\n"+
+"每句一行，保持精簡。若有明確出處就標成：句子｜作者；沒有就只寫句子。\n"+
+"只輸出這些行，放在程式碼區塊裡，不要其他說明。";
+  var PROMPT_VOCAB=
+"請閱讀我提供的英文文章（截圖或連結），挑出約 15 個值得學習的單字（略過 the、is 這類基礎字）。\n"+
+"每個單字輸出一行，欄位用全形直線 ｜ 分隔，順序為：\n"+
+"單字｜KK音標（不加斜線）｜中文（開頭標詞性如 n./v./adj.）｜英文例句（12字以內，盡量取自文章）\n"+
+"只輸出這些行，放在程式碼區塊裡，不要其他說明。";
+
+  function showPrompt(which){
+    var text=which==="quote"?PROMPT_QUOTE:PROMPT_VOCAB;
+    $("promptText").value=text;
+    $("promptBox").style.display="flex";
+    $("promptQuote").setAttribute("aria-pressed",which==="quote"?"true":"false");
+    $("promptVocab").setAttribute("aria-pressed",which==="vocab"?"true":"false");
+  }
+  function copyPrompt(){
+    var ta=$("promptText"),btn=$("promptCopy");
+    function done(){var o=btn.textContent;btn.textContent="已複製";setTimeout(function(){btn.textContent=o;},1200);}
+    function fallback(){ta.focus();ta.select();try{document.execCommand("copy");done();}catch(e){}}
+    if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(ta.value).then(done,fallback);
+    else fallback();
+  }
+
+  /* ---------- UI wiring ---------- */
+  function buildPalettes(){
+    var box=$("palettes");
+    PALETTES.forEach(function(p,idx){
+      var b=document.createElement("button");b.className="sw";b.type="button";
+      b.setAttribute("aria-pressed",idx===0?"true":"false");
+      b.innerHTML='<span class="chip" style="background:'+p.bg+'"><span style="color:'+p.fg+'">永</span></span><span class="nm">'+p.name+'</span>';
+      b.addEventListener("click",function(){
+        state.bg=p.bg;state.fg=p.fg;
+        $("bgColor").value=p.bg;$("bgVal").textContent=p.bg.toUpperCase();
+        $("fgColor").value=p.fg;$("fgVal").textContent=p.fg.toUpperCase();
+        var all=box.querySelectorAll(".sw");for(var k=0;k<all.length;k++)all[k].setAttribute("aria-pressed",k===idx?"true":"false");
+        refresh(true);
+      });
+      box.appendChild(b);
+    });
+  }
+  function seg(id,key,after,numeric){
+    var g=$(id);g.addEventListener("click",function(e){
+      var btn=e.target.closest("button");if(!btn)return;
+      var btns=g.querySelectorAll("button");for(var i=0;i<btns.length;i++)btns[i].setAttribute("aria-pressed","false");
+      btn.setAttribute("aria-pressed","true");var v=btn.getAttribute("data-v");state[key]=numeric?+v:v;
+      if(after)after();update(true);
+    });
+  }
+  function applyModeLabels(){
+    if(state.mode==="vocab"){$("listLabel").textContent="已加入的單字";$("ruleLabel").textContent="單字間分隔線";$("indexLabel").innerHTML="右上角 DAY 編號";}
+    else{$("listLabel").textContent="已加入的金句";$("ruleLabel").textContent="出處上方分隔線";$("indexLabel").innerHTML="右上角編號（DM&nbsp;Mono）";}
+  }
+  function switchMode(target){
+    if(target===state.mode)return;resetSpeak();
+    state.mode=target;state.current=0;document.body.setAttribute("data-mode",target);
+    var btns=$("modeSwitch").querySelectorAll("button");
+    for(var i=0;i<btns.length;i++)btns[i].setAttribute("aria-pressed",btns[i].getAttribute("data-v")===target?"true":"false");
+    applyModeLabels();update(true);
+  }
+
+  function init(){
+    loadState();
+    buildPalettes();
+    syncControls();
+    $("modeSwitch").addEventListener("click",function(e){var b=e.target.closest("button");if(b)switchMode(b.getAttribute("data-v"));});
+    seg("fontMode","fontMode");
+    seg("sizeMode","sizeMode",function(){var manual=state.sizeMode==="manual";$("fontSize").disabled=!manual;$("fontSizeVal").textContent=manual?state.fontSize+" px":"自動";});
+    seg("perCard","wordsPerCard",null,true);
+
+    // quick add
+    $("qAdd").addEventListener("click",addQuote);
+    $("qText").addEventListener("keydown",function(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();addQuote();}});
+    $("qAuthor").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();addQuote();}});
+    $("wAdd").addEventListener("click",addWord);
+    ["wWord","wPhon","wMeaning","wExample"].forEach(function(id){
+      $(id).addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();addWord();}});
+    });
+    $("clearAll").addEventListener("click",clearAll);
+    $("bulkAppend").addEventListener("click",function(){bulkApply(false);});
+    $("bulkReplace").addEventListener("click",function(){bulkApply(true);});
+    $("fileImportBtn").addEventListener("click",function(){$("fileImport").click();});
+    $("fileImport").addEventListener("change",function(e){var f=e.target.files&&e.target.files[0];if(f)importFile(f);e.target.value="";});
+    $("promptQuote").addEventListener("click",function(){showPrompt("quote");});
+    $("promptVocab").addEventListener("click",function(){showPrompt("vocab");});
+    $("promptCopy").addEventListener("click",copyPrompt);
+
+    // style controls
+    $("bgColor").addEventListener("input",function(e){state.bg=e.target.value;$("bgVal").textContent=e.target.value.toUpperCase();markPalette();refresh(true);});
+    $("fgColor").addEventListener("input",function(e){state.fg=e.target.value;$("fgVal").textContent=e.target.value.toUpperCase();markPalette();refresh(true);});
+    $("fontSize").addEventListener("input",function(e){state.fontSize=+e.target.value;$("fontSizeVal").textContent=state.fontSize+" px";refresh(true);});
+    $("optQuote").addEventListener("change",function(e){state.quote=e.target.checked;refresh(true);});
+    $("optRule").addEventListener("change",function(e){state.rule=e.target.checked;refresh(true);});
+    $("optIndex").addEventListener("change",function(e){state.index=e.target.checked;refresh(true);});
+    $("optPhon").addEventListener("change",function(e){state.showPhon=e.target.checked;refresh(true);});
+    $("optExample").addEventListener("change",function(e){state.showExample=e.target.checked;refresh(true);});
+    $("outSize").addEventListener("change",function(e){state.outSize=+e.target.value;refresh(true);});
+
+    // nav
+    $("prev").addEventListener("click",function(){if(state.current>0){resetSpeak();state.current--;refresh(false);markThumbs();renderList();}});
+    $("next").addEventListener("click",function(){if(state.current<state.items.length-1){resetSpeak();state.current++;refresh(false);markThumbs();renderList();}});
+    $("dlOne").addEventListener("click",downloadOne);
+    $("dlAll").addEventListener("click",downloadAll);
+
+    // speech
+    if(!Speech.supported){$("speakBtn").disabled=true;$("speakBtn").textContent="此瀏覽器不支援朗讀";}
+    else{
+      $("speakBtn").addEventListener("click",function(){
+        if(state.mode!=="vocab")return;
+        if(Speech.isSpeaking()){resetSpeak();return;}
+        var card=state.items[state.current];if(!card)return;
+        var list=[];card.words.forEach(function(w){if(w.word)list.push(w.word);if(state.showExample&&w.example)list.push(w.example);});
+        if(!list.length)return;$("speakBtn").textContent="停止";
+        Speech.speak(list,$("slowSpeak").checked,function(){$("speakBtn").textContent="朗讀本張";});
+      });
+    }
+
+    applyModeLabels();
+    var fonts=['600 80px "Noto Serif TC"','500 80px "Noto Sans TC"','400 120px "Noto Serif TC"','500 30px "DM Mono"'];
+    Promise.all(fonts.map(function(f){return document.fonts.load(f);}))
+      .then(function(){return document.fonts.ready;})
+      .then(function(){update(true);}).catch(function(){update(true);});
+    update(true);
+  }
+
+  /* ---------- download ---------- */
+  function canvasToBlob(canvas){return new Promise(function(res){canvas.toBlob(res,"image/png");});}
+  function fileName(i){var num=String(i+1);if(num.length<2)num="0"+num;return (state.mode==="vocab"?"words-day-":"quote-")+num+".png";}
+  function triggerDownload(blob,name){var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;
+    document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},1000);}
+  function downloadOne(){if(state.items.length===0)return;var W=state.outSize;
+    var c=document.createElement("canvas");c.width=W;c.height=W;
+    renderCard(c.getContext("2d"),W,state.items[state.current],state.current);
+    c.toBlob(function(b){triggerDownload(b,fileName(state.current));},"image/png");}
+  function downloadAll(){
+    var n=state.items.length;if(n===0)return;var W=state.outSize,status=$("status");
+    var zipName=state.mode==="vocab"?"vocab-cards.zip":"quote-cards.zip";
+    if(typeof JSZip==="undefined"){
+      status.textContent="壓縮元件未載入，改為逐張下載…";
+      var cc=document.createElement("canvas");cc.width=W;cc.height=W;var cx=cc.getContext("2d");
+      (function loop(i){if(i>=n){status.textContent="完成，共 "+n+" 張。";return;}
+        renderCard(cx,W,state.items[i],i);
+        cc.toBlob(function(b){triggerDownload(b,fileName(i));setTimeout(function(){loop(i+1);},350);},"image/png");})(0);return;}
+    status.textContent="製作中… 0 / "+n;
+    var zip=new JSZip(),c=document.createElement("canvas");c.width=W;c.height=W;var ctx=c.getContext("2d"),i=0;
+    function step(){
+      if(i>=n){status.textContent="打包中…";zip.generateAsync({type:"blob"}).then(function(blob){triggerDownload(blob,zipName);status.textContent="完成，共 "+n+" 張，已打包為 "+zipName+"。";});return;}
+      renderCard(ctx,W,state.items[i],i);
+      canvasToBlob(c).then(function(blob){zip.file(fileName(i),blob);i++;status.textContent="製作中… "+i+" / "+n;setTimeout(step,0);});
+    }
+    step();
+  }
+
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init);else init();
+})();
+</script>
+</body>
+</html>
