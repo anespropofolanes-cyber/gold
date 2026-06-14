@@ -302,6 +302,7 @@
           <span class="label">裝飾</span>
           <div class="mode-quote">
             <div class="checkrow"><input type="checkbox" id="optQuote" checked><label for="optQuote">顯示引號裝飾</label></div>
+            <div class="checkrow"><input type="checkbox" id="optSplit"><label for="optSplit">長句自動跨頁（保持字大）</label></div>
           </div>
           <div class="mode-vocab">
             <div class="checkrow"><input type="checkbox" id="optPhon" checked><label for="optPhon">顯示音標</label></div>
@@ -364,7 +365,7 @@
     bg:"#2E3A45", fg:"#E8E4D9",
     fontMode:"serif",
     sizeMode:"auto", fontSize:78,
-    quote:true, rule:true, index:false,
+    quote:true, rule:true, index:false, splitLong:false,
     showPhon:true, showExample:false,
     wordsPerCard:3,
     outSize:1088,
@@ -417,11 +418,21 @@
   function renderQuote(ctx,W,item,idx){
     var H=W;ctx.clearRect(0,0,W,H);ctx.fillStyle=state.bg;ctx.fillRect(0,0,W,H);
     var inset=Math.round(W*0.13),maxWidth=W-inset*2;
-    var hasAttr=!!item.author,attrZone=hasAttr?Math.round(W*0.14):0;
+    var multi=(item.pages&&item.pages>1);
+    var hasAttr=!!item.author && (multi?item.last:true);
+    var attrZone=hasAttr?Math.round(W*0.14):0;
     var maxBlockH=H-inset*2-attrZone;
-    var lay=layoutText(ctx,item.text.split("\n"),maxWidth,maxBlockH);
+    var lay;
+    if(item.fixedSize){
+      ctx.font=fontWeight()+" "+item.fixedSize+"px "+fontStack();
+      var ls=[];item.text.split("\n").forEach(function(p){ls=ls.concat(wrapParagraph(ctx,p,maxWidth));});
+      lay={size:item.fixedSize,lines:ls,lineHeight:item.fixedSize*1.5};
+    } else {
+      lay=layoutText(ctx,item.text.split("\n"),maxWidth,maxBlockH);
+    }
     var topShift=0;
-    if(state.quote){
+    var firstPage=!multi||item.page===0;
+    if(state.quote && firstPage){
       var qm=Math.round(W*0.16);ctx.font="400 "+qm+'px "Noto Serif TC", serif';
       ctx.fillStyle=state.fg;ctx.globalAlpha=0.16;ctx.textAlign="center";ctx.textBaseline="alphabetic";
       ctx.fillText("\u201C",W/2,inset+qm*0.78);ctx.globalAlpha=1;topShift=Math.round(qm*0.30);
@@ -439,7 +450,8 @@
       ctx.font="500 "+aSize+'px "Noto Sans TC", sans-serif';ctx.fillStyle=state.fg;ctx.globalAlpha=0.78;
       ctx.textAlign="center";ctx.textBaseline="alphabetic";ctx.fillText(item.author,W/2,ay);ctx.globalAlpha=1;
     }
-    if(state.index)drawIndex(ctx,W,inset,String(idx+1));
+    if(multi)drawIndex(ctx,W,inset,(item.page+1)+"/"+item.pages);
+    else if(state.index)drawIndex(ctx,W,inset,String(idx+1));
   }
 
   /* ---------- vocab render ---------- */
@@ -509,13 +521,49 @@
   }
 
   /* ---------- build items from lists ---------- */
+  var _mcanvas=null;
+  function measureCtx(){if(!_mcanvas)_mcanvas=document.createElement("canvas");return _mcanvas.getContext("2d");}
+  function computeAutoSize(ctx,text,maxWidth,availH){
+    var weight=fontWeight(),fam=fontStack(),min=34,max=Math.min(146,Math.floor(maxWidth/3));
+    var paragraphs=text.split("\n");
+    for(var size=max;size>=min;size-=2){
+      ctx.font=weight+" "+size+"px "+fam;var lines=[],maxW=0;
+      paragraphs.forEach(function(p){lines=lines.concat(wrapParagraph(ctx,p,maxWidth));});
+      for(var i=0;i<lines.length;i++)maxW=Math.max(maxW,ctx.measureText(lines[i]).width);
+      if(lines.length*size*1.5<=availH && maxW<=maxWidth)return size;
+    }
+    return min;
+  }
+  function paginateQuote(ctx,text,W){
+    var inset=Math.round(W*0.13),maxWidth=W-inset*2,availH=W-inset*2;
+    var PSIZE=Math.round(W*0.06);
+    var auto=computeAutoSize(ctx,text,maxWidth,availH);
+    if(auto>=PSIZE)return null;
+    var weight=fontWeight(),fam=fontStack();ctx.font=weight+" "+PSIZE+"px "+fam;
+    var lines=[];text.split("\n").forEach(function(p){lines=lines.concat(wrapParagraph(ctx,p,maxWidth));});
+    var lh=PSIZE*1.5,usableH=availH-Math.round(W*0.12);
+    var perCard=Math.max(1,Math.floor(usableH/lh));
+    var pages=[];
+    for(var i=0;i<lines.length;i+=perCard)pages.push(lines.slice(i,i+perCard).join("\n"));
+    return {size:PSIZE,pages:pages};
+  }
   function buildItems(){
     if(state.mode==="vocab"){
       var per=state.wordsPerCard,cards=[];
       for(var i=0;i<state.vocabList.length;i+=per)cards.push({words:state.vocabList.slice(i,i+per)});
       return cards;
     }
-    return state.quoteList.map(function(q){return {text:q.text,author:q.author};});
+    if(!state.splitLong)
+      return state.quoteList.map(function(q){return {text:q.text,author:q.author,pages:1,page:0,last:true};});
+    var ctx=measureCtx(),W=state.outSize,out=[];
+    state.quoteList.forEach(function(q){
+      var pg=paginateQuote(ctx,q.text,W);
+      if(!pg)out.push({text:q.text,author:q.author,pages:1,page:0,last:true});
+      else pg.pages.forEach(function(chunk,i){
+        out.push({text:chunk,author:q.author,fixedSize:pg.size,pages:pg.pages.length,page:i,last:(i===pg.pages.length-1)});
+      });
+    });
+    return out;
   }
 
   /* ---------- speech ---------- */
@@ -679,7 +727,7 @@
     try{
       var data={mode:state.mode,quoteList:state.quoteList,vocabList:state.vocabList,
         bg:state.bg,fg:state.fg,fontMode:state.fontMode,sizeMode:state.sizeMode,fontSize:state.fontSize,
-        quote:state.quote,rule:state.rule,index:state.index,showPhon:state.showPhon,showExample:state.showExample,
+        quote:state.quote,rule:state.rule,index:state.index,splitLong:state.splitLong,showPhon:state.showPhon,showExample:state.showExample,
         wordsPerCard:state.wordsPerCard,outSize:state.outSize,current:state.current};
       localStorage.setItem(STORAGE_KEY,JSON.stringify(data));
     }catch(e){}
@@ -699,7 +747,7 @@
     if(d.fontMode==="serif"||d.fontMode==="sans")state.fontMode=d.fontMode;
     if(d.sizeMode==="auto"||d.sizeMode==="manual")state.sizeMode=d.sizeMode;
     if(typeof d.fontSize==="number")state.fontSize=Math.min(140,Math.max(40,d.fontSize));
-    ["quote","rule","index","showPhon","showExample"].forEach(function(k){if(typeof d[k]==="boolean")state[k]=d[k];});
+    ["quote","rule","index","splitLong","showPhon","showExample"].forEach(function(k){if(typeof d[k]==="boolean")state[k]=d[k];});
     if([1,2,3,4].indexOf(d.wordsPerCard)>=0)state.wordsPerCard=d.wordsPerCard;
     if([1024,1088,1440].indexOf(+d.outSize)>=0)state.outSize=+d.outSize;
     if(typeof d.current==="number"&&d.current>=0)state.current=d.current;
@@ -722,7 +770,7 @@
     $("fontSize").disabled=(state.sizeMode!=="manual");$("fontSize").value=state.fontSize;
     $("fontSizeVal").textContent=(state.sizeMode==="manual")?(state.fontSize+" px"):"自動";
     setSeg("perCard",state.wordsPerCard);
-    $("optQuote").checked=state.quote;$("optRule").checked=state.rule;$("optIndex").checked=state.index;
+    $("optQuote").checked=state.quote;$("optRule").checked=state.rule;$("optIndex").checked=state.index;$("optSplit").checked=state.splitLong;
     $("optPhon").checked=state.showPhon;$("optExample").checked=state.showExample;
     $("outSize").value=String(state.outSize);
     markPalette();applyModeLabels();
@@ -822,6 +870,7 @@
     $("fgColor").addEventListener("input",function(e){state.fg=e.target.value;$("fgVal").textContent=e.target.value.toUpperCase();markPalette();refresh(true);});
     $("fontSize").addEventListener("input",function(e){state.fontSize=+e.target.value;$("fontSizeVal").textContent=state.fontSize+" px";refresh(true);});
     $("optQuote").addEventListener("change",function(e){state.quote=e.target.checked;refresh(true);});
+    $("optSplit").addEventListener("change",function(e){state.splitLong=e.target.checked;refresh(true);});
     $("optRule").addEventListener("change",function(e){state.rule=e.target.checked;refresh(true);});
     $("optIndex").addEventListener("change",function(e){state.index=e.target.checked;refresh(true);});
     $("optPhon").addEventListener("change",function(e){state.showPhon=e.target.checked;refresh(true);});
